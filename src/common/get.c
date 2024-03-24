@@ -311,6 +311,7 @@ get_l2len_protocol(const u_char *pktdata,
 
         eth_hdr = (eth_hdr_t *)(pktdata + *l2offset);
         ether_type = ntohs(eth_hdr->ether_type);
+        dbgx(4, "ether_type: %04x", ether_type);
         if (parse_metadata(pktdata, datalen, &ether_type, &l2_net_off, l2offset, vlan_offset))
             return -1;
 

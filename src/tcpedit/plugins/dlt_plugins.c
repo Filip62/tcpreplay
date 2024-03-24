@@ -218,6 +218,8 @@ tcpedit_dlt_process(tcpeditdlt_t *ctx, u_char **packet, int pktlen, tcpr_dir_t d
     if (direction == TCPR_DIR_NOSEND)
         return pktlen;
 
+    dbg(4, "Decoding...");
+
     /* decode packet */
     if ((rcode = tcpedit_dlt_decode(ctx, *packet, pktlen)) == TCPEDIT_ERROR) {
         return TCPEDIT_ERROR;
@@ -227,12 +229,16 @@ tcpedit_dlt_process(tcpeditdlt_t *ctx, u_char **packet, int pktlen, tcpr_dir_t d
         return rcode; /* can't edit the packet */
     }
 
+    dbg(4, "Encoding...");
+
     /* encode packet */
     if ((rcode = tcpedit_dlt_encode(ctx, *packet, pktlen, direction)) == TCPEDIT_ERROR) {
         return TCPEDIT_ERROR;
     } else if (rcode == TCPEDIT_WARN) {
         warnx("Warning encoding packet: %s", tcpedit_getwarn(ctx->tcpedit));
     }
+
+    dbg(4, "Return...");
 
     return rcode;
 }
@@ -301,6 +307,7 @@ tcpedit_dlt_l2len(tcpeditdlt_t *ctx, int dlt, const u_char *packet, const int pk
 
     res = plugin->plugin_l2len(ctx, packet, pktlen);
     if (res == -1) {
+        dbgx(4, "Failed plugin_l2len: %s", tcpedit_geterr(ctx->tcpedit));
         tcpedit_seterr(ctx->tcpedit,
                        "Packet length %d is to short to contain a layer 2 header for DLT 0x%04x",
                        pktlen,

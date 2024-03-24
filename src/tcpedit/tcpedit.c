@@ -107,13 +107,19 @@ again:
         return TCPEDIT_SOFT_ERROR;
     }
 
+    dbgx(4, "[BEFORE] caplen = %u\tlen = %u", (*pkthdr)->caplen, (*pkthdr)->len);
+
     /* update our packet lengths (real/captured) based on L2 length changes */
     lendiff = pktlen - (int)(*pkthdr)->caplen;
     (*pkthdr)->caplen += lendiff;
     (*pkthdr)->len += lendiff;
 
+    dbgx(4, "[DIFF] = %d", lendiff);
+    dbgx(4, "[AFTER] caplen = %u\tlen = %u\tpktlen = %d", (*pkthdr)->caplen, (*pkthdr)->len, pktlen);
+
     dst_dlt = tcpedit_dlt_dst(tcpedit->dlt_ctx);
     l2len = tcpedit_dlt_l2len(tcpedit->dlt_ctx, dst_dlt, packet, (int)(*pkthdr)->caplen);
+
     if (l2len == -1)
         return TCPEDIT_SOFT_ERROR;
 
@@ -145,7 +151,7 @@ again:
             return TCPEDIT_SOFT_ERROR;
         }
 
-        dbgx(3, "Packet has an IPv4 header: 0x%p...", ip_hdr);
+        dbgx(3, "Packet has an IPv4 header: %p...", ip_hdr);
     } else if (l2proto == htons(ETHERTYPE_IP6)) {
         u_char *p;
 
@@ -182,6 +188,8 @@ again:
     if (ip_hdr != NULL) {
         /* set TOS ? */
         if (tcpedit->tos > -1) {
+            dbg(4, "SET TOS");
+
             volatile uint16_t oldval = *((uint16_t *)ip_hdr);
             volatile uint16_t newval;
 
@@ -190,18 +198,25 @@ again:
             csum_replace2(&ip_hdr->ip_sum, oldval, newval);
         }
 
+        dbg(4, "SET TTL");
         /* rewrite the TTL */
         needtorecalc += rewrite_ipv4_ttl(tcpedit, ip_hdr);
+        dbgx(4, "needtorecalc: %d", needtorecalc);
 
         /* rewrite TCP/UDP ports */
         if (tcpedit->portmap != NULL) {
+            dbg(4, "SET PORTS");
+
             if ((retval = rewrite_ipv4_ports(tcpedit, &ip_hdr, (int)(*pkthdr)->caplen - l2len)) < 0)
                 return TCPEDIT_ERROR;
             needtorecalc += retval;
         }
 
-        if (tcpedit->tcp_sequence_enable)
+        if (tcpedit->tcp_sequence_enable) {
+            dbg(4, "SET TCP SEQUENCE");
+
             rewrite_ipv4_tcp_sequence(tcpedit, &ip_hdr, (int)(*pkthdr)->caplen - l2len);
+        }
     }
 
     /* IPv6 edits */
@@ -247,6 +262,8 @@ again:
     }
 
     if (fuzz_once) {
+        dbg(4, "FUZZ ONCE");
+
         fuzz_once = false;
         retval = fuzzing(tcpedit, *pkthdr, pktdata);
         if (retval < 0) {
@@ -258,6 +275,8 @@ again:
 
     /* (Un)truncate or MTU truncate packet? */
     if (tcpedit->fixlen || tcpedit->mtu_truncate) {
+        dbg(4, "(UN)TRUNCATE");
+
         if ((retval = untrunc_packet(tcpedit, *pkthdr, pktdata, ip_hdr, ip6_hdr)) < 0)
             return TCPEDIT_ERROR;
         needtorecalc += retval;
@@ -265,6 +284,8 @@ again:
 
     /* rewrite IP addresses in IPv4/IPv6 or ARP */
     if (tcpedit->rewrite_ip) {
+        dbg(4, "SET IP ADDRESS");
+
         /* IP packets */
         if (ip_hdr != NULL) {
             if ((retval = rewrite_ipv4l3(tcpedit, ip_hdr, direction, (int)(*pkthdr)->caplen - l2len)) < 0)
@@ -290,6 +311,8 @@ again:
 
     /* do we need to spoof the src/dst IP address in IPv4 or ARP? */
     if (tcpedit->seed) {
+        dbg(4, "SET IP ADDRESS SEED SPOOF");
+
         /* IPv4 Packets */
         if (ip_hdr != NULL) {
             if ((retval = randomize_ipv4(tcpedit, *pkthdr, packet, ip_hdr, (int)(*pkthdr)->caplen - l2len)) < 0)
@@ -317,6 +340,10 @@ again:
 
     /* ensure IP header length is correct */
     if (ip_hdr != NULL) {
+        dbg(4, "SET CORRECT IPV4 LENGTH");
+
+        dbg(4, "Maybe actually set the right neet to recalc here???");
+
         fix_ipv4_length(*pkthdr, ip_hdr, l2len);
         needtorecalc = 1;
     } else if (ip6_hdr != NULL) {
@@ -325,6 +352,8 @@ again:
 
     /* do we need to fix checksums? -- must always do this last! */
     if ((tcpedit->fixcsum || needtorecalc > 0)) {
+        dbg(4, "FIX CHKSUM");
+
         if (ip_hdr != NULL) {
             dbgx(3, "doing IPv4 checksum: needtorecalc=%d", needtorecalc);
             retval = fix_ipv4_checksums(tcpedit, *pkthdr, ip_hdr, l2len);

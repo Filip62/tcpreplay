@@ -21,6 +21,7 @@
 #include "linuxsll.h"
 #include "../ethernet.h"
 #include "dlt_utils.h"
+#include "err.h"
 #include "tcpedit.h"
 #include "tcpedit_stub.h"
 #include <stdlib.h>
@@ -175,6 +176,8 @@ dlt_linuxsll_decode(tcpeditdlt_t *ctx, const u_char *packet, int pktlen)
     assert(ctx);
     assert(packet);
 
+    dbg(4, ">>> Decoding...");
+
     if (pktlen < (int)sizeof(linux_sll_header_t))
         return TCPEDIT_ERROR;
 
@@ -193,6 +196,8 @@ dlt_linuxsll_decode(tcpeditdlt_t *ctx, const u_char *packet, int pktlen)
         tcpedit_seterr(ctx->tcpedit, "%s", "DLT_LINUX_SLL pcap's must contain only ethernet or loopback packets");
         return TCPEDIT_ERROR;
     }
+
+    dbg(4, ">>> Decoded...");
 
     return TCPEDIT_OK; /* success */
 }
