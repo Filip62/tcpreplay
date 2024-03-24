@@ -184,6 +184,10 @@ dlt_linuxsll_decode(tcpeditdlt_t *ctx, const u_char *packet, int pktlen)
 
     type = ntohs(linux_sll->type);
     if (type == ARPHRD_ETHER || type == ARPHRD_LOOPBACK) { /* ethernet or loopback */
+        if (ntohs(linux_sll->length) != ETHER_ADDR_LEN) {
+            tcpedit_seterr(ctx->tcpedit, "%s", "DLT_LINUX_SLL pcap packet does not contain the whole ethernet address");
+            return TCPEDIT_ERROR;
+        }
         memcpy(&(ctx->srcaddr), linux_sll->address, ETHER_ADDR_LEN);
     } else {
         tcpedit_seterr(ctx->tcpedit, "%s", "DLT_LINUX_SLL pcap's must contain only ethernet or loopback packets");
