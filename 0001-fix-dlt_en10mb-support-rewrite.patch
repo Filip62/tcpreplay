@@ -1,0 +1,53 @@
+From e4518101b3d485ef5f581cbeb872481d23f60169 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Filip=20Ban=C3=A1k?= <>
+Date: Sun, 24 Mar 2024 03:52:32 +0100
+Subject: [PATCH 1/2] fix(dlt_en10mb): support rewrite
+
+---
+ src/tcpedit/plugins/dlt_en10mb/en10mb.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/src/tcpedit/plugins/dlt_en10mb/en10mb.c b/src/tcpedit/plugins/dlt_en10mb/en10mb.c
+index 0c24d8e5..55906446 100644
+--- a/src/tcpedit/plugins/dlt_en10mb/en10mb.c
++++ b/src/tcpedit/plugins/dlt_en10mb/en10mb.c
+@@ -519,9 +519,15 @@ dlt_en10mb_encode(tcpeditdlt_t *ctx, u_char *packet, int pktlen, tcpr_dir_t dir)
+     }
+ 
+     /* newl2len for some other DLT -> ethernet */
+-    else if (config->vlan == TCPEDIT_VLAN_ADD) {
+-        /* if add a vlan then 18, */
+-        newl2len = TCPR_802_1Q_H;
++    else {
++        oldl2len = ctx->l2len;
++        if (config->vlan == TCPEDIT_VLAN_ADD) {
++            /* if add a vlan then 18, */
++            newl2len = TCPR_802_1Q_H;
++        } else {
++            // if no vlan then 14
++            newl2len = TCPR_ETH_H;
++        }
+     }
+ 
+     if (pktlen < newl2len || pktlen + newl2len - ctx->l2len > MAXPACKET) {
+@@ -707,6 +713,8 @@ dlt_en10mb_encode(tcpeditdlt_t *ctx, u_char *packet, int pktlen, tcpr_dir_t dir)
+         eth->ether_type = htons(extra->vlan_proto);
+     }
+ 
++    eth->ether_type = ctx->proto;
++
+     return pktlen;
+ }
+ 
+@@ -812,7 +820,7 @@ dlt_en10mb_merge_layer3(tcpeditdlt_t *ctx, u_char *packet, int pktlen, u_char *i
+     if (l2len == -1 || pktlen < l2len)
+         return NULL;
+ 
+-    assert(ctx->decoded_extra_size == sizeof(*extra));
++    assert(ctx->decoded_extra_size >= sizeof(*extra));
+     extra = (en10mb_extra_t *)ctx->decoded_extra;
+     eth = (struct tcpr_ethernet_hdr *)(packet + ctx->l2offset);
+     assert(eth);
+-- 
+2.44.0
+

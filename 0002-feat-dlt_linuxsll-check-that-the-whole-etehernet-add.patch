@@ -1,0 +1,28 @@
+From beee42229019185ac3fe1abab1c7cb5721d4ae9a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Filip=20Ban=C3=A1k?= <>
+Date: Sun, 24 Mar 2024 16:04:42 +0100
+Subject: [PATCH 2/2] feat(dlt_linuxsll): check that the whole etehernet
+ address is present
+
+---
+ src/tcpedit/plugins/dlt_linuxsll/linuxsll.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/src/tcpedit/plugins/dlt_linuxsll/linuxsll.c b/src/tcpedit/plugins/dlt_linuxsll/linuxsll.c
+index e6dfeb2f..0251623a 100644
+--- a/src/tcpedit/plugins/dlt_linuxsll/linuxsll.c
++++ b/src/tcpedit/plugins/dlt_linuxsll/linuxsll.c
+@@ -184,6 +184,10 @@ dlt_linuxsll_decode(tcpeditdlt_t *ctx, const u_char *packet, int pktlen)
+ 
+     type = ntohs(linux_sll->type);
+     if (type == ARPHRD_ETHER || type == ARPHRD_LOOPBACK) { /* ethernet or loopback */
++        if (ntohs(linux_sll->length) != ETHER_ADDR_LEN) {
++            tcpedit_seterr(ctx->tcpedit, "%s", "DLT_LINUX_SLL pcap packet does not contain the whole ethernet address");
++            return TCPEDIT_ERROR;
++        }
+         memcpy(&(ctx->srcaddr), linux_sll->address, ETHER_ADDR_LEN);
+     } else {
+         tcpedit_seterr(ctx->tcpedit, "%s", "DLT_LINUX_SLL pcap's must contain only ethernet or loopback packets");
+-- 
+2.44.0
+
