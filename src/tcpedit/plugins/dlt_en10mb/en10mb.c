@@ -519,9 +519,15 @@ dlt_en10mb_encode(tcpeditdlt_t *ctx, u_char *packet, int pktlen, tcpr_dir_t dir)
     }
 
     /* newl2len for some other DLT -> ethernet */
-    else if (config->vlan == TCPEDIT_VLAN_ADD) {
-        /* if add a vlan then 18, */
-        newl2len = TCPR_802_1Q_H;
+    else {
+        oldl2len = ctx->l2len;
+        if (config->vlan == TCPEDIT_VLAN_ADD) {
+            /* if add a vlan then 18, */
+            newl2len = TCPR_802_1Q_H;
+        } else {
+            // if no vlan then 14
+            newl2len = TCPR_ETH_H;
+        }
     }
 
     if (pktlen < newl2len || pktlen + newl2len - ctx->l2len > MAXPACKET) {
@@ -707,6 +713,8 @@ dlt_en10mb_encode(tcpeditdlt_t *ctx, u_char *packet, int pktlen, tcpr_dir_t dir)
         eth->ether_type = htons(extra->vlan_proto);
     }
 
+    eth->ether_type = ctx->proto;
+
     return pktlen;
 }
 
@@ -812,7 +820,7 @@ dlt_en10mb_merge_layer3(tcpeditdlt_t *ctx, u_char *packet, int pktlen, u_char *i
     if (l2len == -1 || pktlen < l2len)
         return NULL;
 
-    assert(ctx->decoded_extra_size == sizeof(*extra));
+    assert(ctx->decoded_extra_size >= sizeof(*extra));
     extra = (en10mb_extra_t *)ctx->decoded_extra;
     eth = (struct tcpr_ethernet_hdr *)(packet + ctx->l2offset);
     assert(eth);
